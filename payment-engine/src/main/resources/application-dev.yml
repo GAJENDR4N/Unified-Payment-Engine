@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:payment_engine}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update      # convenient for local dev only - never in uat/prod
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+logging:
+  level:
+    io.gomobi.payment: DEBUG
+    org.hibernate.SQL: DEBUG
+
+payment:
+  provider:
+    fiuu:
+      base-url: ${FIUU_BASE_URL:https://sandbox.fiuu.com}
+      merchant-id: ${FIUU_MERCHANT_ID:Mobiasia_Dev}
+      secret-key: ${FIUU_SECRET_KEY:c8b7e498f67335323bba3624d6a6e45f}
+      verify-key: ${FIUU_VERIFY_KEY:1ec708b39e2984c33890efda4ad4fe41}
+    payok:
+      base-url: ${PAYOK_BASE_URL:https://sandbox.payok.com}
+      merchant-id: ${PAYOK_MERCHANT_ID:}
+      secret-key: ${PAYOK_SECRET_KEY:}
+    curlec:
+      base-url: ${CURLEC_BASE_URL:https://sandbox.curlec.com}
+      merchant-id: ${CURLEC_MERCHANT_ID:}
+      secret-key: ${CURLEC_SECRET_KEY:}

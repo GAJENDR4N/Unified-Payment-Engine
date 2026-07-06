@@ -1,0 +1,71 @@
+package io.gomobi.payment.dto;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.util.Map;
+
+/**
+ * Inbound Create Payment API request. Field names/casing follow the agreed
+ * API contract (snake_case over the wire, mapped to camelCase in Java).
+ *
+ * NOTE: the contract as supplied spells the idempotency field
+ * "idempontent_key" - this is accepted via {@code @JsonAlias} alongside the
+ * more conventional "idempotency_key" so a future spelling fix on either
+ * side doesn't break the other. Flagging this for confirmation - once
+ * confirmed, the alias can be dropped.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreatePaymentRequest {
+
+    @NotBlank
+    @JsonProperty("idempontent_key")
+    @JsonAlias({"idempotency_key", "idempontent_key"})
+    private String idempotencyKey;
+
+    @NotBlank
+    @JsonProperty("reference_id")
+    private String referenceId;
+
+    @NotBlank
+    @JsonProperty("global_account_id")
+    private String globalAccountId;
+
+    @NotBlank
+    @JsonProperty("master_mid")
+    private String masterMid;
+
+    @JsonProperty("sub_merchant_mid")
+    private String subMerchantMid;
+
+    @NotNull
+    @Positive
+    private BigDecimal amount;
+
+    @NotBlank
+    private String currency;
+
+    private String description;
+
+    @NotNull
+    @Valid
+    @JsonProperty("payment_method")
+    private PaymentMethodInfo paymentMethod;
+
+    @Valid
+    private CustomerInfo customer;
+
+    private Map<String, Object> metadata;
+}

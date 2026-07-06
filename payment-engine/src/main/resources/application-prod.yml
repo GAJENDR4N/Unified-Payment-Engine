@@ -1,0 +1,48 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?useSSL=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate    # schema is managed via DDL scripts, app never alters it
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+logging:
+  level:
+    io.gomobi.payment: INFO
+    org.hibernate.SQL: WARN
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    enabled: false     # keep docs UI off the public surface in prod; api-docs JSON still available internally if needed
+
+payment:
+  provider:
+    fiuu:
+      base-url: ${FIUU_BASE_URL}
+      merchant-id: ${FIUU_MERCHANT_ID}
+      secret-key: ${FIUU_SECRET_KEY}
+      verify-key: ${FIUU_VERIFY_KEY}
+    payok:
+      base-url: ${PAYOK_BASE_URL}
+      merchant-id: ${PAYOK_MERCHANT_ID}
+      secret-key: ${PAYOK_SECRET_KEY}
+    curlec:
+      base-url: ${CURLEC_BASE_URL}
+      merchant-id: ${CURLEC_MERCHANT_ID}
+      secret-key: ${CURLEC_SECRET_KEY}
