@@ -11,11 +11,14 @@ import java.math.RoundingMode;
 @Component
 public class PayokRequestBuilder {
 
-    @Value("${payment.provider.payok.merchant-id}")
-    private String merchantId;
+    private final String merchantId;
+    private final String secretKey;
 
-    @Value("${payment.provider.payok.secret-key}")
-    private String secretKey;
+    public PayokRequestBuilder(@Value("${payment.provider.payok.merchant-id}") String merchantId,
+                               @Value("${payment.provider.payok.secret-key}") String secretKey) {
+        this.merchantId = merchantId;
+        this.secretKey = secretKey;
+    }
 
     public PayokPaymentRequestDto build(PaymentRequest request) {
         String formattedAmount = request.getAmount().setScale(0, RoundingMode.HALF_UP).toPlainString();
@@ -29,9 +32,9 @@ public class PayokRequestBuilder {
                 .amount(formattedAmount)
                 .currency(request.getCurrency())
                 .description("Order " + request.getMerchantRefNo())
-                .customerName(request.getCustomerDetails() != null ? request.getCustomerDetails().getName() : null)
-                .customerEmail(request.getCustomerDetails() != null ? request.getCustomerDetails().getEmail() : null)
-                .customerPhone(request.getCustomerDetails() != null ? request.getCustomerDetails().getPhone() : null)
+                .customerName(request.getCustomerDetails().getName())
+                .customerEmail(request.getCustomerDetails().getEmail())
+                .customerPhone(request.getCustomerDetails().getPhone())
                 .notifyUrl(request.getNotifyUrl())
                 .signature(signature)
                 .build();

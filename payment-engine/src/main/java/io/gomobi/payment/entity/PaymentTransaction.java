@@ -75,7 +75,7 @@ public class PaymentTransaction {
     @Column(name = "TRANSACTION_AMOUNT", nullable = false)
     private BigDecimal transactionAmount;
 
-    @Column(name = "CURRENCY_CODE", nullable = false)
+    @Column(name = "CURRENCY_CODE", length = 3, nullable = false, columnDefinition = "CHAR(3)")
     private String currencyCode;
 
     @Column(name = "CREATED_TIMESTAMP", insertable = false, updatable = false)

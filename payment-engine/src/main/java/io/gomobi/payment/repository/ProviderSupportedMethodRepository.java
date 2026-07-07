@@ -8,5 +8,6 @@ import java.util.List;
 
 public interface ProviderSupportedMethodRepository extends JpaRepository<ProviderSupportedMethod, Long> {
 
-    List<ProviderSupportedMethod> findByPaymentMethodFkAndStatus(Long paymentMethodFk, Status status);
+    List<ProviderSupportedMethod> findByPaymentMethodFkAndStatusOrderByProviderSupportedMethodIdAsc(Long paymentMethodFk, Status status);
+
 }

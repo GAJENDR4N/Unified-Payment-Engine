@@ -22,6 +22,7 @@ public class PaymentResponse {
     private PaymentBrand brand;
     private PaymentProvider provider;
     private TransactionStatus status;
+    private String providerStatus;
     private BigDecimal amount;
     private String currency;
 

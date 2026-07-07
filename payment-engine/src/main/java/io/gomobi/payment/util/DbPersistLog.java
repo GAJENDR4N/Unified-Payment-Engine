@@ -9,11 +9,11 @@ public final class DbPersistLog {
     }
 
     public static void log(Logger log, String entity, String key, long durationMs) {
-        log.info("event=DB_PERSIST entity={} key={} durationMs={}", entity, key, durationMs);
+        log.info("event=DB_PERSIST entity={} key={} result=SUCCESS durationMs={}", entity, key, durationMs);
     }
 
     public static void logError(Logger log, String entity, String key, long durationMs, Throwable error) {
-        log.error("event=DB_PERSIST_ERROR entity={} key={} durationMs={} error={}",
+        log.error("event=DB_PERSIST entity={} key={} result=FAILED durationMs={} error={}",
                 entity, key, durationMs, error.getMessage(), error);
     }
 }

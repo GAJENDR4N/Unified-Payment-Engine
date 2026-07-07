@@ -22,14 +22,12 @@ import java.util.List;
  * payment method, the active provider(s) supporting it
  * (PROVIDER_SUPPORTED_METHOD), and the technical gateway adapter that
  * processes that host.
- *
  * The Create Payment contract does not let the caller name a host
- * explicitly - routing is fully config-driven off channel_code. Today
- * every channel_code in seed data resolves to exactly one active
- * provider, so resolution is unambiguous; if/when a channel is ever
- * supported by more than one active provider, {@link ErrorCode#AMBIGUOUS_PROVIDER_ROUTING}
- * is raised rather than guessing - at that point this service is the
- * right place to add an explicit routing/preference rule.
+ * explicitly - routing is fully config-driven off channel_code.
+ * <p>
+ * Current temporary behavior for channels mapped to multiple active providers:
+ * pick the first row by PROVIDER_SUPPORTED_METHOD_ID ascending (oldest inserted mapping).
+ * A dedicated routing strategy can replace this deterministic fallback later.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,19 +44,15 @@ public class HostResolutionService {
                         "No active payment method configured for channel_code: " + channelCode));
 
         List<ProviderSupportedMethod> supportedMethods = providerSupportedMethodRepository
-                .findByPaymentMethodFkAndStatus(paymentMethod.getPaymentMethodId(), Status.ACTIVE);
+                .findByPaymentMethodFkAndStatusOrderByProviderSupportedMethodIdAsc(paymentMethod.getPaymentMethodId(), Status.ACTIVE);
 
         if (supportedMethods.isEmpty()) {
             throw new PaymentEngineException(ErrorCode.NO_ACTIVE_PROVIDER_FOR_METHOD,
                     "No active provider is configured for channel_code: " + channelCode);
         }
-        if (supportedMethods.size() > 1) {
-            throw new PaymentEngineException(ErrorCode.AMBIGUOUS_PROVIDER_ROUTING,
-                    "Multiple active providers support channel_code: " + channelCode
-                            + " - add an explicit routing rule before enabling this channel");
-        }
 
-        Long providerConfigurationFk = supportedMethods.get(0).getProviderConfigurationFk();
+        // Temporary deterministic priority: oldest inserted mapping wins.
+        Long providerConfigurationFk = supportedMethods.getFirst().getProviderConfigurationFk();
         ProviderConfiguration providerConfiguration = providerConfigurationRepository.findById(providerConfigurationFk)
                 .orElseThrow(() -> new PaymentEngineException(ErrorCode.NO_ACTIVE_PROVIDER_FOR_METHOD,
                         "Configured provider (id=" + providerConfigurationFk + ") no longer exists"));

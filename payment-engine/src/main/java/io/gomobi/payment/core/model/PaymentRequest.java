@@ -55,6 +55,9 @@ public class PaymentRequest {
 
     private String notifyUrl;
 
+    @NotBlank
+    private String description;
+
     /** Provider/brand-specific extra fields that don't fit the common shape. */
     private Map<String, Object> additionalData;
 }

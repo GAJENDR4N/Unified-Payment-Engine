@@ -46,3 +46,7 @@ payment:
       base-url: ${CURLEC_BASE_URL}
       merchant-id: ${CURLEC_MERCHANT_ID}
       secret-key: ${CURLEC_SECRET_KEY}
+    hello-clever:
+      api-url: ${HELLO_CLEVER_API_URL}
+      app-id: ${HELLO_CLEVER_APP_ID}
+      secret-key: ${HELLO_CLEVER_SECRET_KEY}

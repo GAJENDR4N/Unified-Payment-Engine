@@ -15,6 +15,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PaymentEngineException.class)
     public ResponseEntity<ErrorResponse> handlePaymentEngineException(PaymentEngineException ex) {
         ErrorCode errorCode = ex.getErrorCode();
+        log.error("event=PAYMENT_CREATION_FAILED result=FAILED errorCode={} message={}",
+                errorCode.getCode(), ex.getMessage());
         if (errorCode.getHttpStatus().is5xxServerError()) {
             log.error("[{}] {}", errorCode.getCode(), ex.getMessage(), ex);
         } else {
@@ -30,12 +32,16 @@ public class GlobalExceptionHandler {
                 ? ex.getBindingResult().getFieldError().getField() + ": "
                         + ex.getBindingResult().getFieldError().getDefaultMessage()
                 : "Validation failed";
+        log.warn("event=REQUEST_VALIDATED result=FAILED errorCode={} message={}",
+                ErrorCode.VALIDATION_ERROR.getCode(), message);
         return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR, message));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        log.warn("event=REQUEST_VALIDATED result=FAILED errorCode={} message={}",
+                ErrorCode.VALIDATION_ERROR.getCode(), ex.getMessage());
         return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR, ex.getMessage()));
     }

@@ -17,11 +17,11 @@ import java.util.Map;
 /**
  * Inbound Create Payment API request. Field names/casing follow the agreed
  * API contract (snake_case over the wire, mapped to camelCase in Java).
- *
  * NOTE: the contract as supplied spells the idempotency field
- * "idempontent_key" - this is accepted via {@code @JsonAlias} alongside the
+ * "idempotent_key" - this is accepted via {@code @JsonAlias} alongside the
  * more conventional "idempotency_key" so a future spelling fix on either
  * side doesn't break the other. Flagging this for confirmation - once
+ * <p>
  * confirmed, the alias can be dropped.
  */
 @Data
@@ -31,8 +31,8 @@ import java.util.Map;
 public class CreatePaymentRequest {
 
     @NotBlank
-    @JsonProperty("idempontent_key")
-    @JsonAlias({"idempotency_key", "idempontent_key"})
+    @JsonProperty("idempotent_key")
+    @JsonAlias({"idempotency_key", "idempotent_key"})
     private String idempotencyKey;
 
     @NotBlank
@@ -57,6 +57,7 @@ public class CreatePaymentRequest {
     @NotBlank
     private String currency;
 
+    @NotBlank
     private String description;
 
     @NotNull
@@ -64,6 +65,7 @@ public class CreatePaymentRequest {
     @JsonProperty("payment_method")
     private PaymentMethodInfo paymentMethod;
 
+    @NotNull
     @Valid
     private CustomerInfo customer;
 

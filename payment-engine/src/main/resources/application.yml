@@ -3,6 +3,11 @@ spring:
     name: payment-engine
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    hibernate:
+      naming:
+        # Preserve exact table/column names declared in entity annotations.
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
 
 server:
   port: ${SERVER_PORT:8080}
@@ -36,6 +41,14 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 15s
         permitted-number-of-calls-in-half-open-state: 3
+      helloClever:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
 
 payment:
   security:
@@ -47,3 +60,4 @@ payment:
     MAYBANK: FIUU
     TNG: FIUU
     PAYOK: PAYOK
+    HELLO_CLEVER: HELLO_CLEVER

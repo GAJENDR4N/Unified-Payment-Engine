@@ -60,11 +60,12 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
         } finally {
             long durationMs = System.currentTimeMillis() - start;
 
-            String requestBody = extractBody(wrappedRequest.getContentAsByteArray());
             String responseBody = extractBody(wrappedResponse.getContentAsByteArray());
-
-            log.info("event=INCOMING_REQUEST_BODY method={} uri={} requestBody={}",
-                    request.getMethod(), request.getRequestURI(), requestBody);
+            String requestBody = extractBody(wrappedRequest.getContentAsByteArray());
+            if (!requestBody.isBlank()) {
+                log.debug("event=INCOMING_REQUEST_BODY method={} uri={} requestBody={}",
+                        request.getMethod(), request.getRequestURI(), requestBody);
+            }
 
             log.info("event=OUTGOING_RESPONSE method={} uri={} status={} durationMs={} responseBody={}",
                     request.getMethod(), request.getRequestURI(), wrappedResponse.getStatus(), durationMs, responseBody);

@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:payment_engine}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
+    url: jdbc:mysql://${DB_HOST:192.168.11.215}:${DB_PORT:3306}/${DB_NAME:unified_v6}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:mobidevdbadmin}
+    password: ${DB_PASSWORD:M081D@V3@dm!N87}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 10
@@ -11,8 +11,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update      # convenient for local dev only - never in uat/prod
-    show-sql: true
+      ddl-auto: validate    # fail fast if schema differs; never auto-create/alter tables
+      naming:
+        # Keep @Table/@Column names exactly as declared (no snake_case/lowercase conversion)
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -21,7 +24,7 @@ spring:
 logging:
   level:
     io.gomobi.payment: DEBUG
-    org.hibernate.SQL: DEBUG
+#    org.hibernate.SQL: INFO
 
 payment:
   provider:
@@ -38,3 +41,7 @@ payment:
       base-url: ${CURLEC_BASE_URL:https://sandbox.curlec.com}
       merchant-id: ${CURLEC_MERCHANT_ID:}
       secret-key: ${CURLEC_SECRET_KEY:}
+    hello-clever:
+      api-url: ${HELLO_CLEVER_API_URL:https://api.cleverhub.co/api/v2/payins}
+      app-id: ${HELLO_CLEVER_APP_ID:app-35936504a37d53e03abdfbc7318d9ec7}
+      secret-key: ${HELLO_CLEVER_SECRET_KEY:AK_SANDBOX_0de138c08fdfcb8f00c2cfd83c730d164f128c4e0d6e7c742c460b0222e0188a}

@@ -27,13 +27,25 @@ public final class ProviderCallLog {
 
     public static void logResponse(Logger log, String provider, String operation, String transactionId,
                                     String rawResponse, long durationMs) {
-        log.info("event=CLIENT_RESPONSE provider={} operation={} transactionId={} durationMs={} rawResponse={}",
+        log.info("event=CLIENT_RESPONSE provider={} operation={} transactionId={} result=SUCCESS durationMs={} rawResponse={}",
                 provider, operation, transactionId, durationMs, rawResponse);
+    }
+
+    public static void logResponseFailure(Logger log, String provider, String operation, String transactionId,
+                                          long durationMs, int httpStatus, String rawResponse) {
+        log.error("event=CLIENT_RESPONSE provider={} operation={} transactionId={} result=FAILED durationMs={} httpStatus={} rawResponse={}",
+                provider, operation, transactionId, durationMs, httpStatus, rawResponse);
+    }
+
+    public static void logTimeout(Logger log, String provider, String operation, String transactionId,
+                                  long durationMs, Throwable error) {
+        log.error("event=PROVIDER_TIMEOUT provider={} operation={} transactionId={} result=FAILED durationMs={} error={}",
+                provider, operation, transactionId, durationMs, error.getMessage(), error);
     }
 
     public static void logError(Logger log, String provider, String operation, String transactionId,
                                  long durationMs, Throwable error) {
-        log.error("event=CLIENT_ERROR provider={} operation={} transactionId={} durationMs={} error={}",
+        log.error("event=CLIENT_ERROR provider={} operation={} transactionId={} result=FAILED durationMs={} error={}",
                 provider, operation, transactionId, durationMs, error.getMessage(), error);
     }
 }

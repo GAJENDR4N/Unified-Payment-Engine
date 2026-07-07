@@ -31,19 +31,21 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * Single entry point for creating a payment.
- *
+ * <p>
  * Flow: resolve merchant/sub-merchant/host -> persist PAYMENT_TRANSACTION
  * and QR_TRANSACTION_DETAILS with status INITIATED -> call the resolved
  * provider adapter -> persist the outcome. The transaction row exists in
  * the database *before* the provider is ever called, so a crash or timeout
  * mid-call still leaves a durable, queryable record rather than losing the
  * attempt entirely.
- *
+ * <p>
  * There is no separate audit table here by design - the gateway layer
  * upstream owns cross-system audit/recon; this service's job is to create
  * the payment, persist it, and hand back a response.
@@ -62,6 +64,7 @@ public class PaymentCreationService {
     private final TransactionIdGenerator transactionIdGenerator;
 
     public CreatePaymentResponse createPayment(CreatePaymentRequest request) {
+        long flowStart = System.currentTimeMillis();
         Merchant merchant = resolveMerchant(request);
         SubMerchant subMerchant = resolveSubMerchant(request.getSubMerchantMid());
 
@@ -78,9 +81,30 @@ public class PaymentCreationService {
         PaymentTransaction transaction = persistInitialTransaction(request, merchant, subMerchant, resolvedHost, transactionId);
         persistQrDetails(request, transaction);
 
-        PaymentResponse providerResponse = callProvider(request, resolvedHost, brand, transaction);
+        PaymentResponse providerResponse;
+        try {
+            providerResponse = callProvider(request, resolvedHost, brand, transaction);
+        } catch (PaymentEngineException e) {
+            markTransactionFailed(transaction, e);
+            log.error("event=PAYMENT_CREATION_FAILED transactionId={} referenceId={} provider={} stage=PROVIDER_REQUEST errorCode={} error={}",
+                    transaction.getTransactionId(), request.getReferenceId(), resolvedHost.gateway(),
+                    e.getErrorCode().getCode(), e.getMessage());
+            throw e;
+        }
 
-        transaction = updateTransactionOutcome(transaction, providerResponse);
+        try {
+            transaction = updateTransactionOutcome(transaction, providerResponse);
+        } catch (PaymentEngineException e) {
+            log.error("event=PAYMENT_CREATION_FAILED transactionId={} referenceId={} provider={} providerPaymentId={} stage=PAYMENT_UPDATED_DB errorCode={} error={}",
+                    transaction.getTransactionId(), request.getReferenceId(), resolvedHost.gateway(),
+                    providerResponse.getPspRefNo(), e.getErrorCode().getCode(), e.getMessage());
+            throw e;
+        }
+
+        log.info("event=PAYMENT_CREATED transactionId={} referenceId={} provider={} paymentStatus={} providerStatus={} providerPaymentId={} result=SUCCESS durationMs={}",
+                transaction.getTransactionId(), request.getReferenceId(), resolvedHost.gateway(),
+                transaction.getTransactionStatus(), providerResponse.getProviderStatus(), transaction.getPspRefNo(),
+                System.currentTimeMillis() - flowStart);
 
         return toResponse(transaction, request, providerResponse);
     }
@@ -205,7 +229,9 @@ public class PaymentCreationService {
                 .amount(request.getAmount())
                 .currency(request.getCurrency())
                 .merchantRefNo(request.getReferenceId())
+                .description(request.getDescription())
                 .customerDetails(toCustomerDetails(request.getCustomer()))
+                .additionalData(toProviderAdditionalData(request))
                 .build();
 
         PaymentProviderAdapter adapter = adapterRegistry.getAdapter(resolvedHost.gateway());
@@ -223,6 +249,13 @@ public class PaymentCreationService {
                 .build();
     }
 
+    private Map<String, Object> toProviderAdditionalData(CreatePaymentRequest request) {
+        Map<String, Object> additionalData = new LinkedHashMap<>();
+        additionalData.put("description", request.getDescription());
+        additionalData.put("metadata", request.getMetadata());
+        return additionalData;
+    }
+
     private PaymentTransaction updateTransactionOutcome(PaymentTransaction transaction, PaymentResponse providerResponse) {
         transaction.setTransactionStatus(providerResponse.getStatus() != null ? providerResponse.getStatus() : TransactionStatus.PENDING);
         transaction.setPspRefNo(providerResponse.getPspRefNo());
@@ -236,6 +269,25 @@ public class PaymentCreationService {
             DbPersistLog.logError(log, "PAYMENT_TRANSACTION_UPDATE", transaction.getTransactionId(),
                     System.currentTimeMillis() - start, e);
             throw new PaymentEngineException(ErrorCode.DB_PERSIST_ERROR, "Failed to persist payment transaction outcome", e);
+        }
+    }
+
+    private void markTransactionFailed(PaymentTransaction transaction, PaymentEngineException cause) {
+        transaction.setTransactionStatus(TransactionStatus.FAILED);
+        long start = System.currentTimeMillis();
+        try {
+            paymentTransactionRepository.save(transaction);
+            DbPersistLog.log(log, "PAYMENT_TRANSACTION_UPDATE_FAILED", transaction.getTransactionId(),
+                    System.currentTimeMillis() - start);
+            log.warn("event=PAYMENT_MARKED_FAILED transactionId={} paymentStatus={} result=SUCCESS failureCode={} reason={}",
+                    transaction.getTransactionId(), transaction.getTransactionStatus(),
+                    cause.getErrorCode().getCode(), cause.getMessage());
+        } catch (Exception markError) {
+            DbPersistLog.logError(log, "PAYMENT_TRANSACTION_UPDATE_FAILED", transaction.getTransactionId(),
+                    System.currentTimeMillis() - start, markError);
+            log.error("event=PAYMENT_MARKED_FAILED transactionId={} paymentStatus={} result=FAILED originalFailureCode={} markFailure={}",
+                    transaction.getTransactionId(), transaction.getTransactionStatus(),
+                    cause.getErrorCode().getCode(), markError.getMessage(), markError);
         }
     }
 

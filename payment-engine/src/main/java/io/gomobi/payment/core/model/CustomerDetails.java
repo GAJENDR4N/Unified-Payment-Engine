@@ -1,5 +1,6 @@
 package io.gomobi.payment.core.model;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +11,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CustomerDetails {
+    @NotBlank
     private String name;
+
+    @NotBlank
     private String email;
+
+    @NotBlank
     private String phone;
 }

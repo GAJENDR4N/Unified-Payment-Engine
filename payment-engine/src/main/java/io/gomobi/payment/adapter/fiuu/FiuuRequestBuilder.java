@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
 /**
@@ -24,16 +23,16 @@ public class FiuuRequestBuilder {
             PaymentBrand.TNG, "TNG"
     );
 
-    @Value("${payment.provider.fiuu.merchant-id}")
-    private String merchantId;
-
-    @Value("${payment.provider.fiuu.secret-key}")
-    private String secretKey;
-
     private final FiuuClient fiuuClient;
+    private final String merchantId;
+    private final String secretKey;
 
-    public FiuuRequestBuilder(FiuuClient fiuuClient) {
+    public FiuuRequestBuilder(FiuuClient fiuuClient,
+                              @Value("${payment.provider.fiuu.merchant-id}") String merchantId,
+                              @Value("${payment.provider.fiuu.secret-key}") String secretKey) {
         this.fiuuClient = fiuuClient;
+        this.merchantId = merchantId;
+        this.secretKey = secretKey;
     }
 
     public FiuuPaymentRequestDto build(PaymentRequest request) {
@@ -41,9 +40,9 @@ public class FiuuRequestBuilder {
         String formattedAmount = formatAmount(request.getAmount());
 
         // FIUU vsign formula: md5( md5(amount+merchantID+orderid+secretKey) )
-        String preSkey = fiuuClient.computeSignature(
+        String preSkey = FiuuClient.computeSignature(
                 formattedAmount, merchantId, request.getMerchantRefNo(), secretKey);
-        String vsign = fiuuClient.computeSignature(preSkey);
+        String vsign = FiuuClient.computeSignature(preSkey);
 
         return FiuuPaymentRequestDto.builder()
                 .merchantId(merchantId)
@@ -51,9 +50,9 @@ public class FiuuRequestBuilder {
                 .orderId(request.getMerchantRefNo())
                 .currency(request.getCurrency())
                 .channel(channel)
-                .billName(request.getCustomerDetails() != null ? request.getCustomerDetails().getName() : null)
-                .billEmail(request.getCustomerDetails() != null ? request.getCustomerDetails().getEmail() : null)
-                .billMobile(request.getCustomerDetails() != null ? request.getCustomerDetails().getPhone() : null)
+                .billName(request.getCustomerDetails().getName())
+                .billEmail(request.getCustomerDetails().getEmail())
+                .billMobile(request.getCustomerDetails().getPhone())
                 .returnUrl(request.getReturnUrl())
                 .notifyUrl(request.getNotifyUrl())
                 .vsign(vsign)

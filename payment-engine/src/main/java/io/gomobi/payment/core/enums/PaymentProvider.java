@@ -12,5 +12,6 @@ package io.gomobi.payment.core.enums;
 public enum PaymentProvider {
     FIUU,
     PAYOK,
-    CURLEC
+    CURLEC,
+    HELLO_CLEVER
 }

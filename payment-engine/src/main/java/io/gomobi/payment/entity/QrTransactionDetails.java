@@ -55,7 +55,7 @@ public class QrTransactionDetails {
     @Column(name = "MERCHANT_CITY")
     private String merchantCity;
 
-    @Column(name = "COUNTRY_CODE")
+    @Column(name = "COUNTRY_CODE", columnDefinition = "char(3)", length = 3)
     private String countryCode;
 
     @Column(name = "QR_EXPIRY_TIMESTAMP")
