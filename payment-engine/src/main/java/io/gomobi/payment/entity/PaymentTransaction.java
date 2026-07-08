@@ -14,7 +14,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 
 /**
@@ -45,10 +45,6 @@ public class PaymentTransaction {
     @Column(name = "MERCHANT_REF_NO", nullable = false)
     private String merchantRefNo;
 
-    /** Caller-supplied idempotency key, scoped unique per merchant. */
-//    @Column(name = "GATEWAY_IDEMPOTENCY_KEY", nullable = false)
-//    private String gatewayIdempotencyKey;
-
     @Column(name = "RRN")
     private String rrn;
 
@@ -73,7 +69,7 @@ public class PaymentTransaction {
     private Long paymentMethodFk;
 
     @Column(name = "TRANSACTION_AMOUNT", nullable = false)
-    private BigDecimal transactionAmount;
+    private BigInteger transactionAmount;
 
     @Column(name = "CURRENCY_CODE", length = 3, nullable = false, columnDefinition = "CHAR(3)")
     private String currencyCode;

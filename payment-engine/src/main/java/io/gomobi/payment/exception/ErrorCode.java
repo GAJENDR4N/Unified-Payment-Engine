@@ -23,24 +23,20 @@ public enum ErrorCode {
 
     // ---- 1xxx: request validation -------------------------------------
     VALIDATION_ERROR("PAY-1000", HttpStatus.BAD_REQUEST, "Request validation failed"),
-    DUPLICATE_IDEMPOTENCY_KEY("PAY-1001", HttpStatus.CONFLICT,
-            "A payment with this idempotency key was already submitted with different request data"),
-    DUPLICATE_REFERENCE_ID("PAY-1002", HttpStatus.CONFLICT,
-            "A payment with this reference_id already exists for this merchant"),
+    DUPLICATE_IDEMPOTENCY_KEY("PAY-1001", HttpStatus.CONFLICT, "A payment with this idempotency key was already submitted with different request data"),
+    DUPLICATE_REFERENCE_ID("PAY-1002", HttpStatus.CONFLICT, "A payment with this reference_id already exists for this merchant"),
 
     // ---- 2xxx: merchant / routing / configuration ----------------------
     MERCHANT_NOT_FOUND("PAY-2000", HttpStatus.NOT_FOUND, "Merchant not found for the given master_mid"),
     MERCHANT_INACTIVE("PAY-2001", HttpStatus.CONFLICT, "Merchant is not active"),
     SUB_MERCHANT_NOT_FOUND("PAY-2002", HttpStatus.NOT_FOUND, "Sub-merchant not found for the given sub_merchant_mid"),
-    PAYMENT_METHOD_NOT_CONFIGURED("PAY-2003", HttpStatus.BAD_REQUEST,
-            "No payment method is configured for the given channel_code"),
-    NO_ACTIVE_PROVIDER_FOR_METHOD("PAY-2004", HttpStatus.CONFLICT,
-            "No active provider is configured to process this payment method"),
-    AMBIGUOUS_PROVIDER_ROUTING("PAY-2005", HttpStatus.CONFLICT,
-            "More than one active provider supports this payment method; explicit routing is required"),
+    PAYMENT_METHOD_NOT_CONFIGURED("PAY-2003", HttpStatus.BAD_REQUEST, "No payment method is configured for the given channel_code"),
+    NO_ACTIVE_PROVIDER_FOR_METHOD("PAY-2004", HttpStatus.CONFLICT, "No active provider is configured to process this payment method"),
+    AMBIGUOUS_PROVIDER_ROUTING("PAY-2005", HttpStatus.CONFLICT, "More than one active provider supports this payment method; explicit routing is required"),
     UNSUPPORTED_BRAND("PAY-2006", HttpStatus.BAD_REQUEST, "Provider does not support the requested payment brand"),
     PROVIDER_NOT_FOUND("PAY-2007", HttpStatus.INTERNAL_SERVER_ERROR, "No adapter registered for the resolved provider"),
-
+    SUB_MERCHANT_MISMATCH("PAY-2008", HttpStatus.BAD_REQUEST, "The sub_merchant_mid does not belong to the given master_mid"),
+    SUB_MERCHANT_REQUIRED("PAY-2009", HttpStatus.BAD_REQUEST, "The sub_merchant_mid is required for this merchant"),
     // ---- 3xxx: transaction lookup / state -------------------------------
     TRANSACTION_NOT_FOUND("PAY-3000", HttpStatus.NOT_FOUND, "Transaction not found"),
 

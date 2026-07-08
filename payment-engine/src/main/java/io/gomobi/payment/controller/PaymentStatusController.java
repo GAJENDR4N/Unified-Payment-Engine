@@ -13,7 +13,7 @@ import java.security.NoSuchAlgorithmException;
 
 /** Status enquiry - see {@link PaymentController} for payment creation. */
 @RestController
-@RequestMapping("/v1/payments")
+@RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentStatusController {
 

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Payment creation - see {@link PaymentStatusController} for status enquiry. */
 @Slf4j
 @RestController
-@RequestMapping("/v1/payments")
+@RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 

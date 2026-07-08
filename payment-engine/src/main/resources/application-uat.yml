@@ -41,3 +41,5 @@ payment:
       api-url: ${HELLO_CLEVER_API_URL}
       app-id: ${HELLO_CLEVER_APP_ID}
       secret-key: ${HELLO_CLEVER_SECRET_KEY}
+      webhook-endpoint-url: ${HELLO_CLEVER_WEBHOOK_ENDPOINT_URL}
+      webhook-authorization-header: ${HELLO_CLEVER_WEBHOOK_AUTH_HEADER:}

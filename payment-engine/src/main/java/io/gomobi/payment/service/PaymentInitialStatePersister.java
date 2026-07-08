@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigInteger;
+
 /**
  * Persists the pre-provider-call state (PAYMENT_TRANSACTION +
  * QR_TRANSACTION_DETAILS) as a single atomic unit.
@@ -63,13 +65,12 @@ public class PaymentInitialStatePersister {
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .transactionId(transactionId)
                 .merchantRefNo(request.getReferenceId())
-//                .gatewayIdempotencyKey(request.getIdempotencyKey())
                 .transactionStatus(TransactionStatus.INITIATED)
                 .providerConfigurationFk(resolvedHost.providerConfiguration().getProviderConfigurationId())
                 .merchantFk(merchant.getMerchantId())
                 .subMerchantFk(subMerchant != null ? subMerchant.getSubMerchantId() : null)
                 .paymentMethodFk(resolvedHost.paymentMethod().getPaymentMethodId())
-                .transactionAmount(request.getAmount())
+                .transactionAmount(BigInteger.valueOf(request.getAmount()))
                 .currencyCode(request.getCurrency())
                 .build();
 

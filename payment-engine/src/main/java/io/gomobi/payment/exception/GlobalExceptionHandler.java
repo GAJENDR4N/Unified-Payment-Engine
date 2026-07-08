@@ -12,6 +12,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(DuplicateReferenceException.class)
+    public ResponseEntity<DuplicateReferenceErrorResponse> handleDuplicateReference(DuplicateReferenceException ex) {
+        ErrorCode errorCode = ex.getErrorCode();
+        log.warn("event=PAYMENT_DUPLICATE_REFERENCE result=FAILED errorCode={} message={}",
+                errorCode.getCode(), ex.getMessage());
+        return ResponseEntity.status(errorCode.getHttpStatus())
+                .body(DuplicateReferenceErrorResponse.of(errorCode, ex.getMessage(), ex.getExistingPayment()));
+    }
+
     @ExceptionHandler(PaymentEngineException.class)
     public ResponseEntity<ErrorResponse> handlePaymentEngineException(PaymentEngineException ex) {
         ErrorCode errorCode = ex.getErrorCode();

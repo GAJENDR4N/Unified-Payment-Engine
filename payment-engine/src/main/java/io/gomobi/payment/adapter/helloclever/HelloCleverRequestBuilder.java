@@ -2,19 +2,24 @@ package io.gomobi.payment.adapter.helloclever;
 
 import io.gomobi.payment.adapter.helloclever.dto.HelloCleverPayinRequestDto;
 import io.gomobi.payment.core.model.PaymentRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 /** Translates the generic {@link PaymentRequest} into Hello Clever pay-in request fields. */
 @Component
 public class HelloCleverRequestBuilder {
+
+    @Value("${payment.provider.hello-clever.webhook-endpoint-url:http://localhost:8080/api/v1/webhooks/hello-clever}")
+    private String webhookEndpointUrl;
+
+    @Value("${payment.provider.hello-clever.webhook-authorization-header:}")
+    private String webhookAuthorizationHeader;
 
     public HelloCleverPayinRequestDto build(PaymentRequest request) {
         Map<String, Object> additionalData = request.getAdditionalData();
@@ -33,8 +38,8 @@ public class HelloCleverRequestBuilder {
                         .phone(request.getCustomerDetails().getPhone())
                         .build())
                 .webhookNotification(HelloCleverPayinRequestDto.WebhookNotification.builder()
-                        .endpointUrl("https://webhook.site/50df29b0-25cf-4af8-8d44-5ba539da7f15")
-                        .authorizationHeader("*****")
+                        .endpointUrl(webhookEndpointUrl)
+                        .authorizationHeader(webhookAuthorizationHeader)
                         .build())
                 .expiredAt(getExpiredAt())
                 .build();

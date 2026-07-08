@@ -1,6 +1,8 @@
 package io.gomobi.payment.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.gomobi.payment.core.enums.TransactionStatus;
 import lombok.AllArgsConstructor;
@@ -8,40 +10,40 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class CreatePaymentResponse {
 
-    @JsonProperty("transaction_id")
+    @JsonProperty("transactionId")
     private String transactionId;
 
-    @JsonProperty("reference_id")
+    @JsonProperty("referenceId")
     private String referenceId;
-
-    @JsonProperty("global_account_id")
-    private String globalAccountId;
 
     private TransactionStatus status;
 
-    private BigDecimal amount;
+    private Long amount;
 
     private String currency;
 
-    @JsonProperty("payment_method")
+    @JsonProperty("paymentMethod")
     private PaymentMethodInfo paymentMethod;
 
-    @JsonProperty("qr_string")
+    private CustomerInfo customer;
+
+    @JsonProperty("qrString")
     private String qrString;
 
-    @JsonProperty("payment_url")
+    @JsonProperty("paymentUrl")
     private String paymentUrl;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    @JsonProperty("created_at")
+    @JsonProperty("createdAt")
     private LocalDateTime createdAt;
 }

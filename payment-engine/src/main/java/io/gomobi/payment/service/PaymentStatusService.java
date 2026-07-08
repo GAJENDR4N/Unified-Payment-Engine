@@ -92,7 +92,6 @@ public class PaymentStatusService {
         return StatusEnquiryResponse.builder()
                 .transactionId(transaction.getTransactionId())
                 .referenceId(transaction.getMerchantRefNo())
-                .pspRefNo(transaction.getPspRefNo())
                 .status(transaction.getTransactionStatus())
                 .amount(transaction.getTransactionAmount())
                 .currency(transaction.getCurrencyCode())

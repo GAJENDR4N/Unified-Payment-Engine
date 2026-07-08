@@ -90,6 +90,8 @@ the request below.
 
 ### Create a payment (VietQR / PAYOK)
 
+`amount` is sent in minor units (integer, no decimal point). Example: `10000` means `100.00`.
+
 ```bash
 curl -X POST http://localhost:8080/v1/payments \
   -H "Content-Type: application/json" \

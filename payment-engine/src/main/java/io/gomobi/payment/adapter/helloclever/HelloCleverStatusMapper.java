@@ -37,9 +37,9 @@ public class HelloCleverStatusMapper {
         }
 
         return switch (providerStatus.trim().toUpperCase()) {
-            case "SUCCESS", "PAID", "COMPLETED" -> TransactionStatus.SUCCESS;
+            case "SUCCESS", "PAID", "COMPLETED", "RECEIVED" -> TransactionStatus.SUCCESS;
             case "FAILED", "CANCELLED", "EXPIRED" -> TransactionStatus.FAILED;
-            case "PENDING", "INITIATED", "CREATED" -> TransactionStatus.PENDING;
+            case "PENDING", "INITIATED", "CREATED", "PROCESSING" -> TransactionStatus.PENDING;
             default -> TransactionStatus.INITIATED;
         };
     }
