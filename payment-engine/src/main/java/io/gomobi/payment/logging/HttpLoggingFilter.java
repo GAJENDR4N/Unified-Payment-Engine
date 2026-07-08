@@ -22,7 +22,6 @@ import java.util.List;
  * call: what came in, what went out, and how long it took - in a
  * consistent key=value shape that's easy to parse from log-aggregation
  * tooling (ELK/Loki/Splunk).
- *
  * Bodies are captured via Spring's ContentCachingRequest/ResponseWrapper
  * rather than manually buffering streams, so the actual controller/Jackson
  * body-read still works unmodified. Health/docs endpoints are excluded to
@@ -53,19 +52,16 @@ public class HttpLoggingFilter extends OncePerRequestFilter {
 
         long start = System.currentTimeMillis();
         try {
-            log.info("event=INCOMING_REQUEST method={} uri={} query={}",
-                    request.getMethod(), request.getRequestURI(), request.getQueryString());
-
+            String requestBody = extractBody(wrappedRequest.getContentAsByteArray());
+            if (!requestBody.isBlank()) {
+                log.info("event=INCOMING_REQUEST_BODY method={} uri={} requestBody={}",
+                        request.getMethod(), request.getRequestURI(), requestBody);
+            }
             filterChain.doFilter(wrappedRequest, wrappedResponse);
         } finally {
             long durationMs = System.currentTimeMillis() - start;
 
             String responseBody = extractBody(wrappedResponse.getContentAsByteArray());
-            String requestBody = extractBody(wrappedRequest.getContentAsByteArray());
-            if (!requestBody.isBlank()) {
-                log.debug("event=INCOMING_REQUEST_BODY method={} uri={} requestBody={}",
-                        request.getMethod(), request.getRequestURI(), requestBody);
-            }
 
             log.info("event=OUTGOING_RESPONSE method={} uri={} status={} durationMs={} responseBody={}",
                     request.getMethod(), request.getRequestURI(), wrappedResponse.getStatus(), durationMs, responseBody);

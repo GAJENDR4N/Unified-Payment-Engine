@@ -3,8 +3,6 @@ package io.gomobi.payment.service;
 import io.gomobi.payment.adapter.PaymentProviderAdapter;
 import io.gomobi.payment.core.enums.MerchantStatus;
 import io.gomobi.payment.core.enums.PaymentBrand;
-import io.gomobi.payment.core.enums.QrMode;
-import io.gomobi.payment.core.enums.QrType;
 import io.gomobi.payment.core.enums.TransactionStatus;
 import io.gomobi.payment.core.model.CustomerDetails;
 import io.gomobi.payment.core.model.PaymentRequest;
@@ -14,17 +12,14 @@ import io.gomobi.payment.dto.CreatePaymentResponse;
 import io.gomobi.payment.dto.CustomerInfo;
 import io.gomobi.payment.entity.Merchant;
 import io.gomobi.payment.entity.PaymentTransaction;
-import io.gomobi.payment.entity.QrTransactionDetails;
 import io.gomobi.payment.entity.SubMerchant;
 import io.gomobi.payment.exception.ErrorCode;
 import io.gomobi.payment.exception.PaymentEngineException;
 import io.gomobi.payment.registry.PaymentAdapterRegistry;
 import io.gomobi.payment.repository.MerchantRepository;
 import io.gomobi.payment.repository.PaymentTransactionRepository;
-import io.gomobi.payment.repository.QrTransactionDetailsRepository;
 import io.gomobi.payment.repository.SubMerchantRepository;
 import io.gomobi.payment.util.DbPersistLog;
-import io.gomobi.payment.util.JsonUtils;
 import io.gomobi.payment.util.PaymentMethodBrandMapper;
 import io.gomobi.payment.util.TransactionIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -34,21 +29,8 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
- * Single entry point for creating a payment.
- * <p>
- * Flow: resolve merchant/sub-merchant/host -> persist PAYMENT_TRANSACTION
- * and QR_TRANSACTION_DETAILS with status INITIATED -> call the resolved
- * provider adapter -> persist the outcome. The transaction row exists in
- * the database *before* the provider is ever called, so a crash or timeout
- * mid-call still leaves a durable, queryable record rather than losing the
- * attempt entirely.
- * <p>
- * There is no separate audit table here by design - the gateway layer
- * upstream owns cross-system audit/recon; this service's job is to create
- * the payment, persist it, and hand back a response.
  */
 @Slf4j
 @Service
@@ -58,28 +40,26 @@ public class PaymentCreationService {
     private final MerchantRepository merchantRepository;
     private final SubMerchantRepository subMerchantRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
-    private final QrTransactionDetailsRepository qrTransactionDetailsRepository;
     private final HostResolutionService hostResolutionService;
     private final PaymentAdapterRegistry adapterRegistry;
     private final TransactionIdGenerator transactionIdGenerator;
+    private final PaymentInitialStatePersister paymentInitialStatePersister;
 
     public CreatePaymentResponse createPayment(CreatePaymentRequest request) {
         long flowStart = System.currentTimeMillis();
         Merchant merchant = resolveMerchant(request);
         SubMerchant subMerchant = resolveSubMerchant(request.getSubMerchantMid());
-
-        Optional<PaymentTransaction> existing = checkIdempotency(merchant, request);
-        if (existing.isPresent()) {
-            return toResponse(existing.get(), request, null);
-        }
+//filed validation needs to add
 
         ResolvedHost resolvedHost = hostResolutionService.resolve(request.getPaymentMethod().getChannelCode());
         PaymentBrand brand = PaymentMethodBrandMapper.toBrand(resolvedHost.paymentMethod().getPaymentMethodCode());
 
         String transactionId = transactionIdGenerator.generate();
 
-        PaymentTransaction transaction = persistInitialTransaction(request, merchant, subMerchant, resolvedHost, transactionId);
-        persistQrDetails(request, transaction);
+        // PAYMENT_TRANSACTION + QR_TRANSACTION_DETAILS are persisted together, atomically,
+        // before the provider is ever called - see PaymentInitialStatePersister for why this
+        // needs to be a separate transactional bean rather than two calls made from here.
+        PaymentTransaction transaction = paymentInitialStatePersister.persist(request, merchant, subMerchant, resolvedHost, transactionId);
 
         PaymentResponse providerResponse;
         try {
@@ -139,87 +119,32 @@ public class PaymentCreationService {
      * the exact same request - return the original result rather than
      * creating a second transaction or calling the provider again.
      */
-    private Optional<PaymentTransaction> checkIdempotency(Merchant merchant, CreatePaymentRequest request) {
-        Optional<PaymentTransaction> byIdempotencyKey = paymentTransactionRepository
-                .findByMerchantFkAndGatewayIdempotencyKey(merchant.getMerchantId(), request.getIdempotencyKey());
-
-        if (byIdempotencyKey.isPresent()) {
-            PaymentTransaction existing = byIdempotencyKey.get();
-            if (!Objects.equals(existing.getMerchantRefNo(), request.getReferenceId())) {
-                throw new PaymentEngineException(ErrorCode.DUPLICATE_IDEMPOTENCY_KEY,
-                        "idempotency key " + request.getIdempotencyKey()
-                                + " was already used with a different reference_id");
-            }
-            return byIdempotencyKey;
-        }
-
-        Optional<PaymentTransaction> byReferenceId = paymentTransactionRepository
-                .findByMerchantFkAndMerchantRefNo(merchant.getMerchantId(), request.getReferenceId());
-        if (byReferenceId.isPresent()) {
-            throw new PaymentEngineException(ErrorCode.DUPLICATE_REFERENCE_ID,
-                    "reference_id " + request.getReferenceId() + " already exists for this merchant");
-        }
-
-        return Optional.empty();
-    }
-
-    private PaymentTransaction persistInitialTransaction(CreatePaymentRequest request, Merchant merchant,
-                                                           SubMerchant subMerchant, ResolvedHost resolvedHost,
-                                                           String transactionId) {
-        PaymentTransaction transaction = PaymentTransaction.builder()
-                .transactionId(transactionId)
-                .merchantRefNo(request.getReferenceId())
-                .gatewayIdempotencyKey(request.getIdempotencyKey())
-                .transactionStatus(TransactionStatus.INITIATED)
-                .providerConfigurationFk(resolvedHost.providerConfiguration().getProviderConfigurationId())
-                .merchantFk(merchant.getMerchantId())
-                .subMerchantFk(subMerchant != null ? subMerchant.getSubMerchantId() : null)
-                .paymentMethodFk(resolvedHost.paymentMethod().getPaymentMethodId())
-                .transactionAmount(request.getAmount())
-                .currencyCode(request.getCurrency())
-                .build();
-
-        long start = System.currentTimeMillis();
-        try {
-            transaction = paymentTransactionRepository.save(transaction);
-            // CREATED_TIMESTAMP/UPDATED_TIMESTAMP are DB-generated defaults (insertable=false) -
-            // re-read so the response can report the actual DB-assigned value rather than null.
-            transaction = paymentTransactionRepository.findById(transaction.getPaymentTransactionId()).orElse(transaction);
-            DbPersistLog.log(log, "PAYMENT_TRANSACTION", transactionId, System.currentTimeMillis() - start);
-            return transaction;
-        } catch (Exception e) {
-            DbPersistLog.logError(log, "PAYMENT_TRANSACTION", transactionId, System.currentTimeMillis() - start, e);
-            throw new PaymentEngineException(ErrorCode.DB_PERSIST_ERROR, "Failed to persist payment transaction", e);
-        }
-    }
-
-    private void persistQrDetails(CreatePaymentRequest request, PaymentTransaction transaction) {
-        CustomerInfo customer = request.getCustomer();
-
-        QrTransactionDetails details = QrTransactionDetails.builder()
-                .paymentTransactionFk(transaction.getPaymentTransactionId())
-                .qrType(QrType.DYNAMIC)
-                .qrMode(QrMode.MERCHANT_PRESENTED)
-                .customerId(customer != null ? customer.getId() : null)
-                .customerName(customer != null ? customer.getName() : null)
-                .customerEmail(customer != null ? customer.getEmail() : null)
-                .customerPhone(customer != null ? customer.getPhone() : null)
-                .metadata(JsonUtils.toJson(request.getMetadata()))
-                .build();
-
-        long start = System.currentTimeMillis();
-        try {
-            qrTransactionDetailsRepository.save(details);
-            DbPersistLog.log(log, "QR_TRANSACTION_DETAILS", transaction.getTransactionId(), System.currentTimeMillis() - start);
-        } catch (Exception e) {
-            DbPersistLog.logError(log, "QR_TRANSACTION_DETAILS", transaction.getTransactionId(),
-                    System.currentTimeMillis() - start, e);
-            throw new PaymentEngineException(ErrorCode.DB_PERSIST_ERROR, "Failed to persist QR transaction details", e);
-        }
-    }
+//    private Optional<PaymentTransaction> checkIdempotency(Merchant merchant, CreatePaymentRequest request) {
+//        Optional<PaymentTransaction> byIdempotencyKey = paymentTransactionRepository
+//                .findByMerchantFkAndGatewayIdempotencyKey(merchant.getMerchantId(), request.getIdempotencyKey());
+//
+//        if (byIdempotencyKey.isPresent()) {
+//            PaymentTransaction existing = byIdempotencyKey.get();
+//            if (!Objects.equals(existing.getMerchantRefNo(), request.getReferenceId())) {
+//                throw new PaymentEngineException(ErrorCode.DUPLICATE_IDEMPOTENCY_KEY,
+//                        "idempotency key " + request.getIdempotencyKey()
+//                                + " was already used with a different reference_id");
+//            }
+//            return byIdempotencyKey;
+//        }
+//
+//        Optional<PaymentTransaction> byReferenceId = paymentTransactionRepository
+//                .findByMerchantFkAndMerchantRefNo(merchant.getMerchantId(), request.getReferenceId());
+//        if (byReferenceId.isPresent()) {
+//            throw new PaymentEngineException(ErrorCode.DUPLICATE_REFERENCE_ID,
+//                    "reference_id " + request.getReferenceId() + " already exists for this merchant");
+//        }
+//
+//        return Optional.empty();
+//    }
 
     private PaymentResponse callProvider(CreatePaymentRequest request, ResolvedHost resolvedHost,
-                                          PaymentBrand brand, PaymentTransaction transaction) {
+                                         PaymentBrand brand, PaymentTransaction transaction) {
         PaymentRequest providerRequest = PaymentRequest.builder()
                 .merchantId(transaction.getMerchantFk())
                 .subMerchantId(transaction.getSubMerchantFk())
@@ -292,7 +217,7 @@ public class PaymentCreationService {
     }
 
     private CreatePaymentResponse toResponse(PaymentTransaction transaction, CreatePaymentRequest request,
-                                              PaymentResponse providerResponse) {
+                                             PaymentResponse providerResponse) {
         return CreatePaymentResponse.builder()
                 .transactionId(transaction.getTransactionId())
                 .referenceId(transaction.getMerchantRefNo())

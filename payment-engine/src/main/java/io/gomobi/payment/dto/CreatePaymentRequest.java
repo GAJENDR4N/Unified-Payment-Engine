@@ -1,7 +1,5 @@
 package io.gomobi.payment.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -30,24 +28,18 @@ import java.util.Map;
 @AllArgsConstructor
 public class CreatePaymentRequest {
 
-    @NotBlank
-    @JsonProperty("idempotent_key")
-    @JsonAlias({"idempotency_key", "idempotent_key"})
-    private String idempotencyKey;
+//    @NotBlank
+//    private String idempotencyKey;
 
     @NotBlank
-    @JsonProperty("reference_id")
     private String referenceId;
 
     @NotBlank
-    @JsonProperty("global_account_id")
     private String globalAccountId;
 
     @NotBlank
-    @JsonProperty("master_mid")
     private String masterMid;
 
-    @JsonProperty("sub_merchant_mid")
     private String subMerchantMid;
 
     @NotNull
@@ -62,7 +54,6 @@ public class CreatePaymentRequest {
 
     @NotNull
     @Valid
-    @JsonProperty("payment_method")
     private PaymentMethodInfo paymentMethod;
 
     @NotNull

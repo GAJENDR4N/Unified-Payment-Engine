@@ -46,8 +46,8 @@ public class PaymentTransaction {
     private String merchantRefNo;
 
     /** Caller-supplied idempotency key, scoped unique per merchant. */
-    @Column(name = "GATEWAY_IDEMPOTENCY_KEY", nullable = false)
-    private String gatewayIdempotencyKey;
+//    @Column(name = "GATEWAY_IDEMPOTENCY_KEY", nullable = false)
+//    private String gatewayIdempotencyKey;
 
     @Column(name = "RRN")
     private String rrn;

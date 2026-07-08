@@ -24,9 +24,8 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<CreatePaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
-        log.info("event=REQUEST_BODY endpoint=/v1/payments payload={}", request);
-        log.info("event=REQUEST_VALIDATED endpoint=/v1/payments result=SUCCESS referenceId={} idempotencyKey={}",
-                request.getReferenceId(), request.getIdempotencyKey());
+        log.info("event=REQUEST_VALIDATED endpoint=/v1/payments result=SUCCESS referenceId={}",
+                request.getReferenceId());
         CreatePaymentResponse response = paymentCreationService.createPayment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

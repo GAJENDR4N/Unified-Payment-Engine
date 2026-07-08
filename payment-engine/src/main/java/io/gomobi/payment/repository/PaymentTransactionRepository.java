@@ -9,7 +9,7 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     Optional<PaymentTransaction> findByTransactionId(String transactionId);
 
-    Optional<PaymentTransaction> findByMerchantFkAndGatewayIdempotencyKey(Long merchantFk, String gatewayIdempotencyKey);
+//    Optional<PaymentTransaction> findByMerchantFkAndGatewayIdempotencyKey(Long merchantFk, String gatewayIdempotencyKey);
 
-    Optional<PaymentTransaction> findByMerchantFkAndMerchantRefNo(Long merchantFk, String merchantRefNo);
+//    Optional<PaymentTransaction> findByMerchantFkAndMerchantRefNo(Long merchantFk, String merchantRefNo);
 }
