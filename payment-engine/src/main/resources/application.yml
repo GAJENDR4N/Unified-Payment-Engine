@@ -69,11 +69,10 @@ payment:
       max-attempts: ${PRICING_ENGINE_RETRY_MAX_ATTEMPTS:3}
       delay-ms: ${PRICING_ENGINE_RETRY_DELAY_MS:500}
       multiplier: ${PRICING_ENGINE_RETRY_MULTIPLIER:2.0}
+
   # Maps a "host" provider code (PROVIDER_CONFIGURATION.PROVIDER_CODE) onto
   # the technical gateway adapter that processes it. See
   # HostGatewayMappingProperties / HostResolutionService.
   host-gateway-mapping:
-    MAYBANK: FIUU
-    TNG: FIUU
     PAYOK: PAYOK
     HELLO_CLEVER: HELLO_CLEVER

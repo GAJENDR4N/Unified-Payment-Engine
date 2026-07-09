@@ -70,7 +70,7 @@ public class PaymentInitialStatePersister {
                 .merchant(merchant)
                 .subMerchant(subMerchant)
                 .paymentMethod(resolvedHost.paymentMethod())
-                .transactionAmount(BigInteger.valueOf(request.getAmount()))
+                .transactionAmount(request.getAmount())
                 .currencyCode(request.getCurrency())
                 .build();
 

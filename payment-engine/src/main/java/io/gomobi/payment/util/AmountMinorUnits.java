@@ -1,6 +1,7 @@
 package io.gomobi.payment.util;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 /**
  * Converts between minor units (integer API/storage contract) and decimal
@@ -13,11 +14,11 @@ public final class AmountMinorUnits {
     private AmountMinorUnits() {
     }
 
-    public static BigDecimal toMajor(Long amountMinor) {
+    public static BigDecimal toMajor(BigInteger amountMinor) {
         if (amountMinor == null) {
             return null;
         }
-        return BigDecimal.valueOf(amountMinor).movePointLeft(DEFAULT_SCALE);
+        return new BigDecimal(amountMinor).movePointLeft(DEFAULT_SCALE);
     }
 }
 

@@ -55,6 +55,7 @@ public class PaymentCreationService {
     private final ReferenceDataCacheService referenceDataCacheService;
     private final QrTransactionDetailsRepository qrTransactionDetailsRepository;
     private final HostResolutionService hostResolutionService;
+    private final CreatePaymentRequestValidationService createPaymentRequestValidationService;
     private final PaymentAdapterRegistry adapterRegistry;
     private final TransactionIdGenerator transactionIdGenerator;
     private final PaymentInitialStatePersister paymentInitialStatePersister;
@@ -66,6 +67,8 @@ public class PaymentCreationService {
         SubMerchant subMerchant = resolveSubMerchant(merchant, request.getSubMerchantMid());
 
         ResolvedHost resolvedHost = hostResolutionService.resolve(request.getPaymentMethod().getChannelCode());
+        createPaymentRequestValidationService.validateAndNormalize(request, resolvedHost);
+
         PaymentBrand brand = PaymentMethodBrandMapper.toBrand(resolvedHost.paymentMethod().getPaymentMethodCode());
         String transactionId = transactionIdGenerator.generate();
 
