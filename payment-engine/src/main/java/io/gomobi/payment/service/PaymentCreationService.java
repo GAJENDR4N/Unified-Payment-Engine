@@ -12,17 +12,12 @@ import io.gomobi.payment.dto.CreatePaymentRequest;
 import io.gomobi.payment.dto.CreatePaymentResponse;
 import io.gomobi.payment.dto.CustomerInfo;
 import io.gomobi.payment.dto.PaymentMethodInfo;
-import io.gomobi.payment.entity.Merchant;
-import io.gomobi.payment.entity.PaymentMethod;
-import io.gomobi.payment.entity.PaymentTransaction;
-import io.gomobi.payment.entity.QrTransactionDetails;
-import io.gomobi.payment.entity.SubMerchant;
+import io.gomobi.payment.entity.*;
 import io.gomobi.payment.exception.DuplicateReferenceException;
 import io.gomobi.payment.exception.ErrorCode;
 import io.gomobi.payment.exception.PaymentEngineException;
 import io.gomobi.payment.registry.PaymentAdapterRegistry;
 import io.gomobi.payment.repository.MerchantRepository;
-import io.gomobi.payment.repository.PaymentMethodRepository;
 import io.gomobi.payment.repository.PaymentTransactionRepository;
 import io.gomobi.payment.repository.QrTransactionDetailsRepository;
 import io.gomobi.payment.repository.SubMerchantRepository;
@@ -35,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigInteger;
 import java.util.Map;
 import java.util.Objects;
 
@@ -44,7 +40,7 @@ import java.util.Objects;
  * -> persist INITIATED state (atomically, via {@link PaymentInitialStatePersister})
  * -> call the provider -> persist the outcome.
  * <p>
- * The provider HTTP call deliberately happens outside of any DB transaction
+ * The provider HTTP call deliberately happens outside any DB transaction
  * (see {@link PaymentInitialStatePersister}'s javadoc) - a slow/failed
  * external call should never hold a DB connection open.
  */
@@ -56,7 +52,7 @@ public class PaymentCreationService {
     private final MerchantRepository merchantRepository;
     private final SubMerchantRepository subMerchantRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
-    private final PaymentMethodRepository paymentMethodRepository;
+    private final ReferenceDataCacheService referenceDataCacheService;
     private final QrTransactionDetailsRepository qrTransactionDetailsRepository;
     private final HostResolutionService hostResolutionService;
     private final PaymentAdapterRegistry adapterRegistry;
@@ -80,7 +76,7 @@ public class PaymentCreationService {
             transaction = paymentInitialStatePersister.persist(request, merchant, subMerchant, resolvedHost, transactionId);
         } catch (PaymentEngineException e) {
             if (isDuplicateMerchantReferenceViolation(e)) {
-                throw buildDuplicateReferenceException(merchant.getMerchantId(), request.getReferenceId(), e);
+                throw buildDuplicateReferenceException(merchant.getId(), request.getReferenceId(), e);
             }
             throw e;
         }
@@ -98,7 +94,6 @@ public class PaymentCreationService {
     }
 
     // ---- resolution -----------------------------------------------------
-
     private Merchant resolveMerchant(CreatePaymentRequest request) {
         Merchant merchant = merchantRepository.findByMasterMid(request.getMasterMid())
                 .orElseThrow(() -> new PaymentEngineException(ErrorCode.MERCHANT_NOT_FOUND,
@@ -116,7 +111,6 @@ public class PaymentCreationService {
 
     private SubMerchant resolveSubMerchant(Merchant merchant, String subMerchantMid) {
 
-        //validate sub-mid based on the merchant.getMerchantCategory()
         if (merchant.getMerchantCategory().equals(MerchantCategory.PGE) && (subMerchantMid == null || subMerchantMid.isBlank())) {
             throw new PaymentEngineException(ErrorCode.SUB_MERCHANT_REQUIRED,
                     "sub_merchant_mid is required for merchant category PGE");
@@ -130,7 +124,7 @@ public class PaymentCreationService {
         SubMerchant subMerchant = subMerchantRepository.findBySubMerchantMid(subMerchantMid)
                 .orElseThrow(() -> new PaymentEngineException(ErrorCode.SUB_MERCHANT_NOT_FOUND,
                         "No sub-merchant found for sub_merchant_mid: " + subMerchantMid));
-        if (!Objects.equals(subMerchant.getMerchantFk(), merchant.getMerchantId())) {
+        if (!Objects.equals(subMerchant.getMerchant().getId(), merchant.getId())) {
             throw new PaymentEngineException(ErrorCode.SUB_MERCHANT_MISMATCH,
                     "sub_merchant_mid " + subMerchantMid + " does not belong to master_mid " + merchant.getMasterMid());
         }
@@ -138,12 +132,11 @@ public class PaymentCreationService {
     }
 
     // ---- provider call ----------------------------------------------------
-
     private PaymentResponse callProvider(CreatePaymentRequest request, ResolvedHost resolvedHost,
                                          PaymentBrand brand, PaymentTransaction transaction) {
         PaymentRequest providerRequest = PaymentRequest.builder()
-                .merchantId(transaction.getMerchantFk())
-                .subMerchantId(transaction.getSubMerchantFk())
+                .merchantId(transaction.getMerchant().getId())
+                .subMerchantId(transaction.getSubMerchant() != null ? transaction.getSubMerchant().getId() : null)
                 .category(brand.getCategory())
                 .brand(brand)
                 .provider(resolvedHost.gateway())
@@ -155,6 +148,7 @@ public class PaymentCreationService {
                 .additionalData(request.getMetadata() != null ? Map.copyOf(request.getMetadata()) : Map.of())
                 .build();
 
+        log.info("Payment Request: {}", providerRequest);
         PaymentProviderAdapter adapter = adapterRegistry.getAdapter(resolvedHost.gateway());
         try {
             return adapter.initiatePayment(providerRequest);
@@ -179,8 +173,6 @@ public class PaymentCreationService {
                 .build();
     }
 
-    // ---- outcome persistence ------------------------------------------
-
     /**
      * Persists the transaction status/PSP reference from the provider response,
      * and - when present - the QR payload, so it can be handed back on a status
@@ -193,7 +185,7 @@ public class PaymentCreationService {
         long start = System.currentTimeMillis();
         try {
             PaymentTransaction saved = paymentTransactionRepository.save(transaction);
-            persistQrStringIfPresent(transaction.getPaymentTransactionId(), providerResponse.getQrString());
+            persistQrStringIfPresent(transaction.getId(), providerResponse.getQrString());
             DbPersistLog.log(log, "PAYMENT_TRANSACTION_UPDATE", transaction.getTransactionId(), System.currentTimeMillis() - start);
             return saved;
         } catch (Exception e) {
@@ -207,11 +199,11 @@ public class PaymentCreationService {
         }
     }
 
-    private void persistQrStringIfPresent(Long paymentTransactionId, String qrString) {
+    private void persistQrStringIfPresent(BigInteger paymentTransactionId, String qrString) {
         if (qrString == null || qrString.isBlank()) {
             return;
         }
-        qrTransactionDetailsRepository.findByPaymentTransactionFk(paymentTransactionId).ifPresent(details -> {
+        qrTransactionDetailsRepository.findByPaymentTransaction_Id(paymentTransactionId).ifPresent(details -> {
             details.setQrImageUrl(qrString);
             qrTransactionDetailsRepository.save(details);
         });
@@ -278,22 +270,21 @@ public class PaymentCreationService {
         return builder.toString().toUpperCase();
     }
 
-    private DuplicateReferenceException buildDuplicateReferenceException(Long merchantId,
+    private DuplicateReferenceException buildDuplicateReferenceException(BigInteger merchantId,
                                                                          String referenceId,
                                                                          Throwable cause) {
         PaymentTransaction existingTransaction = paymentTransactionRepository
-                .findByMerchantFkAndMerchantRefNo(merchantId, referenceId)
+                .findByMerchant_IdAndMerchantRefNo(merchantId, referenceId)
                 .orElseThrow(() -> new PaymentEngineException(
                         ErrorCode.DUPLICATE_REFERENCE_ID,
                         "Reference " + referenceId + " already exists, but existing transaction details could not be loaded",
                         cause));
 
-        PaymentMethodInfo paymentMethod = paymentMethodRepository.findById(existingTransaction.getPaymentMethodFk())
-                .map(this::toPaymentMethodInfo)
+        PaymentMethodInfo paymentMethod = referenceDataCacheService.findPaymentMethodById(existingTransaction.getPaymentMethod().getId())                .map(this::toPaymentMethodInfo)
                 .orElse(null);
 
         CustomerInfo customer = qrTransactionDetailsRepository
-                .findByPaymentTransactionFk(existingTransaction.getPaymentTransactionId())
+                .findByPaymentTransaction_Id(existingTransaction.getId())
                 .map(this::toCustomerInfo)
                 .orElse(null);
 

@@ -66,10 +66,10 @@ public class PaymentInitialStatePersister {
                 .transactionId(transactionId)
                 .merchantRefNo(request.getReferenceId())
                 .transactionStatus(TransactionStatus.INITIATED)
-                .providerConfigurationFk(resolvedHost.providerConfiguration().getProviderConfigurationId())
-                .merchantFk(merchant.getMerchantId())
-                .subMerchantFk(subMerchant != null ? subMerchant.getSubMerchantId() : null)
-                .paymentMethodFk(resolvedHost.paymentMethod().getPaymentMethodId())
+                .providerConfiguration(resolvedHost.providerConfiguration())
+                .merchant(merchant)
+                .subMerchant(subMerchant)
+                .paymentMethod(resolvedHost.paymentMethod())
                 .transactionAmount(BigInteger.valueOf(request.getAmount()))
                 .currencyCode(request.getCurrency())
                 .build();
@@ -92,7 +92,7 @@ public class PaymentInitialStatePersister {
         CustomerInfo customer = request.getCustomer();
 
         QrTransactionDetails details = QrTransactionDetails.builder()
-                .paymentTransactionFk(transaction.getPaymentTransactionId())
+                .paymentTransaction(transaction)
                 .qrType(QrType.DYNAMIC)
                 .qrMode(QrMode.MERCHANT_PRESENTED)
                 .customerId(customer != null ? customer.getId() : null)

@@ -49,10 +49,26 @@ resilience4j:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 15s
         permitted-number-of-calls-in-half-open-state: 3
+      pricingEngine:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
 
 payment:
   security:
     api-key: ${PAYMENT_ENGINE_API_KEY:}
+  pricing-engine:
+    enabled: ${PRICING_ENGINE_ENABLED:true}
+    url: ${PRICING_ENGINE_URL:http://192.168.3.103:8081/api/v1/pricing/calculate}
+    default-region: ${PRICING_ENGINE_DEFAULT_REGION:VN}
+    retry:
+      max-attempts: ${PRICING_ENGINE_RETRY_MAX_ATTEMPTS:3}
+      delay-ms: ${PRICING_ENGINE_RETRY_DELAY_MS:500}
+      multiplier: ${PRICING_ENGINE_RETRY_MULTIPLIER:2.0}
   # Maps a "host" provider code (PROVIDER_CONFIGURATION.PROVIDER_CODE) onto
   # the technical gateway adapter that processes it. See
   # HostGatewayMappingProperties / HostResolutionService.

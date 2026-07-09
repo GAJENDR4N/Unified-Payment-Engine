@@ -6,13 +6,13 @@ import io.gomobi.payment.adapter.helloclever.HelloCleverStatusMapper;
 import io.gomobi.payment.core.enums.CallbackType;
 import io.gomobi.payment.core.enums.ProcessResult;
 import io.gomobi.payment.core.enums.TransactionStatus;
+import io.gomobi.payment.dto.PricingNotificationRequest;
+import io.gomobi.payment.entity.PaymentMethod;
 import io.gomobi.payment.entity.PaymentTransaction;
-import io.gomobi.payment.entity.QrCallbackAudit;
+import io.gomobi.payment.entity.ProviderConfiguration;
 import io.gomobi.payment.exception.ErrorCode;
 import io.gomobi.payment.exception.PaymentEngineException;
 import io.gomobi.payment.repository.PaymentTransactionRepository;
-import io.gomobi.payment.repository.QrCallbackAuditRepository;
-import io.gomobi.payment.util.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,8 +33,10 @@ public class HelloCleverWebhookService {
 
     private final ObjectMapper objectMapper;
     private final PaymentTransactionRepository paymentTransactionRepository;
-    private final QrCallbackAuditRepository qrCallbackAuditRepository;
+    private final ReferenceDataCacheService referenceDataCacheService;
     private final HelloCleverStatusMapper helloCleverStatusMapper;
+    private final PricingEngineNotificationService pricingEngineNotificationService;
+    private final CallbackAuditService callbackAuditService;
 
     @Transactional
     public void processWebhook(String requestBody, Map<String, String> headers) {
@@ -55,22 +57,29 @@ public class HelloCleverWebhookService {
             PaymentTransaction transaction = transactionOptional.get();
 
             TransactionStatus mappedStatus = helloCleverStatusMapper.mapStatus(providerStatus);
+            boolean transitionedToSuccess = transaction.getTransactionStatus() != TransactionStatus.SUCCESS
+                    && mappedStatus == TransactionStatus.SUCCESS;
             boolean updated = applyTransactionUpdate(transaction, mappedStatus, pspRefNo);
 
-            QrCallbackAudit callbackAudit = QrCallbackAudit.builder()
-                    .paymentTransactionFk(transaction.getPaymentTransactionId())
-                    .callbackType(CallbackType.PAYMENT_NOTIFICATION)
-                    .requestHeaders(JsonUtils.toJson(headers))
-                    .requestBody(requestBody)
-                    .processedFlag(true)
-                    .processResult(updated ? ProcessResult.SUCCESS : ProcessResult.IGNORED)
-                    .httpStatus(200)
-                    .retryCount(0)
-                    .build();
-            qrCallbackAuditRepository.save(callbackAudit);
+            if (updated && transitionedToSuccess) {
+                buildPricingNotificationRequest(transaction)
+                        .ifPresent(pricingEngineNotificationService::notifyPaymentSuccess);
+            }
+
+            ProcessResult processResult = updated ? ProcessResult.SUCCESS : ProcessResult.IGNORED;
+            callbackAuditService.saveAudit(
+                    transaction,
+                    CallbackType.PAYMENT_NOTIFICATION,
+                    headers,
+                    requestBody,
+                    true,
+                    processResult,
+                    200,
+                    0
+            );
 
             log.info("event=HELLO_CLEVER_WEBHOOK_PROCESSED transactionId={} providerStatus={} mappedStatus={} result={}",
-                    transaction.getTransactionId(), providerStatus, mappedStatus, callbackAudit.getProcessResult());
+                    transaction.getTransactionId(), providerStatus, mappedStatus, processResult);
         } catch (PaymentEngineException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -82,14 +91,14 @@ public class HelloCleverWebhookService {
     private Optional<PaymentTransaction> findTransaction(String pspRefNo, String merchantRefNo) {
         if (pspRefNo != null && !pspRefNo.isBlank()) {
             Optional<PaymentTransaction> byPspRef = paymentTransactionRepository
-                    .findTopByPspRefNoOrderByPaymentTransactionIdDesc(pspRefNo);
+                    .findTopByPspRefNoOrderByIdDesc(pspRefNo);
             if (byPspRef.isPresent()) {
                 return byPspRef;
             }
         }
 
         if (merchantRefNo != null && !merchantRefNo.isBlank()) {
-            return paymentTransactionRepository.findTopByMerchantRefNoOrderByPaymentTransactionIdDesc(merchantRefNo);
+            return paymentTransactionRepository.findTopByMerchantRefNoOrderByIdDesc(merchantRefNo);
         }
 
         return Optional.empty();
@@ -120,9 +129,33 @@ public class HelloCleverWebhookService {
         return updated;
     }
 
+    private Optional<PricingNotificationRequest> buildPricingNotificationRequest(PaymentTransaction transaction) {
+        Optional<PaymentMethod> paymentMethodOptional = referenceDataCacheService.findPaymentMethodById(transaction.getPaymentMethod().getId());
+        if (paymentMethodOptional.isEmpty()) {
+            log.warn("event=PRICING_ENGINE_NOTIFY_SKIPPED transactionId={} reason=PAYMENT_METHOD_NOT_FOUND paymentMethodId={}",
+                    transaction.getTransactionId(), transaction.getPaymentMethod().getId());
+            return Optional.empty();
+        }
+
+        Optional<ProviderConfiguration> providerConfigurationOptional = referenceDataCacheService
+                .findProviderConfigurationById(transaction.getProviderConfiguration().getId());
+        if (providerConfigurationOptional.isEmpty()) {
+            log.warn("event=PRICING_ENGINE_NOTIFY_SKIPPED transactionId={} reason=PROVIDER_CONFIGURATION_NOT_FOUND providerConfigurationId={}",
+                    transaction.getTransactionId(), transaction.getProviderConfiguration().getId());
+            return Optional.empty();
+        }
+
+        PaymentMethod paymentMethod = paymentMethodOptional.get();
+        ProviderConfiguration providerConfiguration = providerConfigurationOptional.get();
+        return Optional.of(PricingNotificationRequest.fromTransaction(
+                transaction,
+                paymentMethod.getPaymentMethodCode(),
+                providerConfiguration.getRegionCode()
+        ));
+    }
+
     private String textValue(JsonNode root, String fieldName) {
         JsonNode node = root.get(fieldName);
         return node == null || node.isNull() ? null : node.asText();
     }
 }
-

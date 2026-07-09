@@ -2,19 +2,10 @@ package io.gomobi.payment.service;
 
 import io.gomobi.payment.config.HostGatewayMappingProperties;
 import io.gomobi.payment.core.enums.PaymentProvider;
-import io.gomobi.payment.core.enums.Status;
-import io.gomobi.payment.entity.PaymentMethod;
-import io.gomobi.payment.entity.ProviderConfiguration;
-import io.gomobi.payment.entity.ProviderSupportedMethod;
 import io.gomobi.payment.exception.ErrorCode;
 import io.gomobi.payment.exception.PaymentEngineException;
-import io.gomobi.payment.repository.PaymentMethodRepository;
-import io.gomobi.payment.repository.ProviderConfigurationRepository;
-import io.gomobi.payment.repository.ProviderSupportedMethodRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 /**
  * Resolves the "requested host" for an inbound payment: given the
@@ -22,7 +13,7 @@ import java.util.List;
  * payment method, the active provider(s) supporting it
  * (PROVIDER_SUPPORTED_METHOD), and the technical gateway adapter that
  * processes that host.
- * The Create Payment contract does not let the caller name a host
+ * The Creation Payment contract does not let the caller name a host
  * explicitly - routing is fully config-driven off channel_code.
  * <p>
  * Current temporary behavior for channels mapped to multiple active providers:
@@ -33,33 +24,21 @@ import java.util.List;
 @RequiredArgsConstructor
 public class HostResolutionService {
 
-    private final PaymentMethodRepository paymentMethodRepository;
-    private final ProviderSupportedMethodRepository providerSupportedMethodRepository;
-    private final ProviderConfigurationRepository providerConfigurationRepository;
+    private final ReferenceDataCacheService referenceDataCacheService;
     private final HostGatewayMappingProperties hostGatewayMappingProperties;
 
     public ResolvedHost resolve(String channelCode) {
-        PaymentMethod paymentMethod = paymentMethodRepository.findByChannelCodeAndStatus(channelCode, Status.ACTIVE)
+        referenceDataCacheService.findActivePaymentMethodByChannelCode(channelCode)
                 .orElseThrow(() -> new PaymentEngineException(ErrorCode.PAYMENT_METHOD_NOT_CONFIGURED,
                         "No active payment method configured for channel_code: " + channelCode));
 
-        List<ProviderSupportedMethod> supportedMethods = providerSupportedMethodRepository
-                .findByPaymentMethodFkAndStatusOrderByProviderSupportedMethodIdAsc(paymentMethod.getPaymentMethodId(), Status.ACTIVE);
-
-        if (supportedMethods.isEmpty()) {
-            throw new PaymentEngineException(ErrorCode.NO_ACTIVE_PROVIDER_FOR_METHOD,
-                    "No active provider is configured for channel_code: " + channelCode);
-        }
-
-        // Temporary deterministic priority: oldest inserted mapping wins.
-        Long providerConfigurationFk = supportedMethods.getFirst().getProviderConfigurationFk();
-        ProviderConfiguration providerConfiguration = providerConfigurationRepository.findById(providerConfigurationFk)
+        ReferenceDataCacheService.CachedHostReference hostReference = referenceDataCacheService
+                .findActiveHostByChannelCode(channelCode)
                 .orElseThrow(() -> new PaymentEngineException(ErrorCode.NO_ACTIVE_PROVIDER_FOR_METHOD,
-                        "Configured provider (id=" + providerConfigurationFk + ") no longer exists"));
+                        "No active provider is configured for channel_code: " + channelCode));
 
-        PaymentProvider gateway = resolveGateway(providerConfiguration.getProviderCode());
-
-        return new ResolvedHost(paymentMethod, providerConfiguration, gateway);
+        PaymentProvider gateway = resolveGateway(hostReference.providerConfiguration().getProviderCode());
+        return new ResolvedHost(hostReference.paymentMethod(), hostReference.providerConfiguration(), gateway);
     }
 
     /** Exposed for callers (e.g. status enquiry) that already know the host provider code. */

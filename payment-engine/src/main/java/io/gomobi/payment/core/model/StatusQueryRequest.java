@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigInteger;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,5 +18,5 @@ public class StatusQueryRequest {
     private String merchantRefNo;
     private PaymentBrand brand;
     private PaymentProvider provider;
-    private Long merchantId;
+    private BigInteger merchantId;
 }

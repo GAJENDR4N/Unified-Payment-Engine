@@ -15,14 +15,13 @@ import java.util.Map;
 @Component
 public class HelloCleverRequestBuilder {
 
-    @Value("${payment.provider.hello-clever.webhook-endpoint-url:http://localhost:8080/api/v1/webhooks/hello-clever}")
+//    @Value("${payment.provider.hello-clever.webhook-endpoint-url:http://localhost:8080/api/v1/webhooks/hello-clever}")
     private String webhookEndpointUrl;
 
     @Value("${payment.provider.hello-clever.webhook-authorization-header:}")
     private String webhookAuthorizationHeader;
 
     public HelloCleverPayinRequestDto build(PaymentRequest request) {
-        Map<String, Object> additionalData = request.getAdditionalData();
 
         return HelloCleverPayinRequestDto.builder()
                 .currency(request.getCurrency())
@@ -38,8 +37,8 @@ public class HelloCleverRequestBuilder {
                         .phone(request.getCustomerDetails().getPhone())
                         .build())
                 .webhookNotification(HelloCleverPayinRequestDto.WebhookNotification.builder()
-                        .endpointUrl(webhookEndpointUrl)
-                        .authorizationHeader(webhookAuthorizationHeader)
+                        .endpointUrl("https://webhook.site/370a0cb6-3c0d-4e8e-8da2-59cbb18e1e0a")
+                        .authorizationHeader("****")
                         .build())
                 .expiredAt(getExpiredAt())
                 .build();

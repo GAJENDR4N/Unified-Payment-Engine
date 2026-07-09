@@ -14,6 +14,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 
 /**
@@ -33,8 +34,8 @@ public class ProviderConfiguration {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "PROVIDER_CONFIGURATION_ID")
-    private Long providerConfigurationId;
+    @Column(name = "ID", columnDefinition = "BIGINT UNSIGNED")
+    private BigInteger id;
 
     @Column(name = "PROVIDER_CODE", nullable = false, unique = true)
     private String providerCode;

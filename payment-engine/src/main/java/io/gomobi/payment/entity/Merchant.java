@@ -15,6 +15,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 
 /** Read-mostly mapping of the MERCHANT master table; this service never creates/updates merchants. */
@@ -28,8 +29,8 @@ public class Merchant {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "MERCHANT_ID")
-    private Long merchantId;
+    @Column(name = "ID", columnDefinition = "BIGINT UNSIGNED")
+    private BigInteger id;
 
     @Column(name = "MASTER_MID", nullable = false, unique = true)
     private String masterMid;

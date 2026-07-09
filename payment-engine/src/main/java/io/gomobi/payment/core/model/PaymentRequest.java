@@ -12,6 +12,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Map;
 
 /**
@@ -26,9 +27,9 @@ import java.util.Map;
 public class PaymentRequest {
 
     @NotNull
-    private Long merchantId;
+    private BigInteger merchantId;
 
-    private Long subMerchantId;
+    private BigInteger subMerchantId;
 
     @NotNull
     private PaymentCategory category;

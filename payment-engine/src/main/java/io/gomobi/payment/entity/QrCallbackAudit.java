@@ -6,38 +6,66 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 
 /**
- * Raw inbound provider callback audit record.
+ * Raw inbound provider callback audit record. Also reused by Payment Engine
+ * for Hello Clever webhook audit persistence.
  */
-@Data
+@Getter
+@Setter
+@ToString
+//@EqualsAndHashCode(onlyExplicitlyInclude = true)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "QR_CALLBACK_AUDIT")
+@Table(
+        name = "QR_CALLBACK_AUDIT",
+        indexes = {
+                @Index(name = "IDX_QCA_PAYMENT_TRANSACTION", columnList = "PAYMENT_TRANSACTION_FK"),
+                @Index(name = "IDX_QCA_RECEIVED_TIMESTAMP", columnList = "RECEIVED_TIMESTAMP"),
+                @Index(name = "IDX_QCA_PROCESSED_FLAG", columnList = "PROCESSED_FLAG"),
+                @Index(name = "IDX_QCA_CALLBACK_TYPE", columnList = "CALLBACK_TYPE")
+        }
+)
 public class QrCallbackAudit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "QR_CALLBACK_AUDIT_ID")
-    private Long qrCallbackAuditId;
+    @Column(name = "ID", columnDefinition = "BIGINT UNSIGNED")
+    @EqualsAndHashCode.Include
+    private BigInteger id;
 
-    @Column(name = "PAYMENT_TRANSACTION_FK", nullable = false)
-    private Long paymentTransactionFk;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "PAYMENT_TRANSACTION_FK",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "FK_QCA_PT")
+    )
+    @ToString.Exclude
+    private PaymentTransaction paymentTransaction;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "CALLBACK_TYPE", nullable = false)
+    @Column(name = "CALLBACK_TYPE", nullable = false, length = 30)
     private CallbackType callbackType;
 
     @Column(name = "REQUEST_HEADERS", columnDefinition = "json")
@@ -53,7 +81,7 @@ public class QrCallbackAudit {
     private Boolean processedFlag;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "PROCESS_RESULT")
+    @Column(name = "PROCESS_RESULT", length = 20)
     private ProcessResult processResult;
 
     @Column(name = "HTTP_STATUS")
@@ -65,4 +93,3 @@ public class QrCallbackAudit {
     @Column(name = "CREATED_TIMESTAMP", insertable = false, updatable = false)
     private LocalDateTime createdTimestamp;
 }
-
